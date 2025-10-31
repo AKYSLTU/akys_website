@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AKYS — Datasets for the Real World</title>
+  <meta name="description" content="AKYS collects and sells high-quality, privacy-safe multi-sensor driving datasets: LiDAR, stereo, thermal, RTK, IMU, and environmental context." />
+  <!-- SEO -->
+  <meta name="robots" content="index,follow">
+  <meta name="keywords" content="AKYS,datasets,LiDAR,ZED,stereo,thermal,GNSS RTK,IMU,computer vision,mapping,Europe,Lithuania">
+  <link rel="canonical" href="https://akys.ai/">
+  <link rel="icon" href="/assets/favicon.ico">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="AKYS — High-fidelity Multi-sensor Datasets">
+  <meta property="og:description" content="Privacy-safe LiDAR + Vision datasets with RTK and context sensors. Continuously updated across Lithuania & Europe.">
+  <meta property="og:image" content="https://akys.ai/assets/og-cover.jpg">
+  <meta property="og:url" content="https://akys.ai/">
+  <meta name="twitter:card" content="summary_large_image">
+  <script type="application/ld+json">
+  {
+    "@context":"https://schema.org",
+    "@type":"WebSite",
+    "name":"AKYS",
+    "url":"https://akys.ai/",
+    "potentialAction":{"@type":"SearchAction","target":"https://akys.ai/?q={search_term_string}","query-input":"required name=search_term_string"}
+  }
+  </script>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0a0a0b;
+      --bg-2: #0f1012;
+      --ink: #f4f4f5;
+      --muted: #b3b6bb;
+      --line: #1a1b1f;
+      --pill: 999px; --radius: 18px; --radius-lg: 28px;
+      --shadow-1: 0 10px 30px rgba(0,0,0,.45);
+      --shadow-2: 0 25px 80px rgba(0,0,0,.55);
+      --grid-gap: clamp(14px, 1.3vw, 22px);
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0; font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      color: var(--ink); background: var(--bg); overflow-x: hidden; 
+      background-image: radial-gradient(1200px 400px at 50% -10%, rgba(255,255,255,.12), rgba(255,255,255,0) 60%);
+      background-attachment: fixed;
+    }
+    a { color: inherit; text-decoration: none; }
+    .container { width: min(1200px, 92vw); margin-inline: auto; }
+
+    /* ===== Nav ===== */
+    header { position: sticky; top: 0; z-index: 20; background: rgba(10,10,11,.6); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+    .nav { display: flex; align-items: center; justify-content: space-between; padding: 16px 0; }
+    .brand { display:flex; align-items:center; gap: 14px; }
+    .brand img.logo { height: 40px; width: auto; filter: drop-shadow(0 6px 12px rgba(0,0,0,.5)); }
+    @media (min-width: 1200px){ .brand img.logo { height: 46px; } }
+    .tagline { color: var(--muted); font-size: 12px; font-weight: 700; letter-spacing: .03em; opacity:.95; white-space: nowrap; }
+    .links { display: flex; gap: 22px; align-items: center; }
+    .links a { color: var(--muted); font-weight: 600; font-size: 14px; opacity: .9; }
+    .links a:hover { color: var(--ink); }
+    .cta { display:inline-flex; align-items:center; gap:10px; background: #111214; border: 1px solid #202228; padding: 10px 16px; border-radius: var(--pill); font-weight: 700; font-size: 13px; box-shadow: inset 0 1px 0 rgba(255,255,255,.08), var(--shadow-1); position: relative; overflow: hidden; }
+    .cta:hover { transform: translateY(-1px); }
+    .burger { display:none; }
+    @media (max-width: 980px){ .tagline { display:none; } }
+    @media (max-width: 880px){ .links { display:none; } .burger { display:block; } }
+
+    /* ===== HERO (video background) ===== */
+    .hero { position: relative; padding: clamp(64px, 10vw, 120px) 0 56px; }
+    .hero-bg { position: absolute; inset: 0; overflow: hidden; z-index: 0; }
+    .hero-bg video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; filter: brightness(0.55) saturate(1.2); pointer-events: none; }
+    .hero-bg .hero-overlay { position:absolute; inset:0;
+      background:
+        radial-gradient(1200px 500px at 20% 0%, rgba(0,0,0,.25), transparent 60%),
+        linear-gradient(180deg, rgba(0,0,0,.35), rgba(0,0,0,.35));
+    }
+    .hero-inner { position: relative; z-index: 1; display:grid; grid-template-columns: 1.2fr 1fr; gap: 40px; align-items: center; }
+    .hero h1 { font-size: clamp(36px, 6vw, 64px); line-height: 1.05; margin: 0 0 14px; letter-spacing: .5px; text-shadow: 0 2px 20px rgba(0,0,0,.35); }
+    .hero p { color: var(--muted); margin: 0 0 24px; font-size: clamp(15px, 1.4vw, 18px); }
+    .hero .buttons { display:flex; gap: 12px; flex-wrap: wrap; }
+    .ghost { border:1px solid #2b2d33; background: #121317; padding:12px 18px; border-radius: var(--pill); font-weight:700; }
+    @media (max-width: 980px){ .hero-inner{ grid-template-columns: 1fr; } }
+
+    /* ===== Sections ===== */
+    section { padding: 56px 0; position:relative; }
+    .section-head { display:flex; align-items:end; justify-content:space-between; margin-bottom: 24px; gap: 16px; }
+    .eyebrow { font-size: 12px; letter-spacing: .28em; text-transform: uppercase; color: var(--muted); }
+    h2 { margin: 6px 0 0; font-size: clamp(24px, 3.4vw, 36px); }
+
+    /* ===== Marketplace grid ===== */
+    .filters { display:flex; flex-wrap:wrap; gap:8px; }
+    .chip { background:#121317; border:1px solid #22242a; padding:8px 12px; border-radius: var(--pill); font-size: 13px; color: var(--muted); cursor:pointer; user-select:none; }
+    .chip.active { color: var(--ink); background:#1a1c22; border-color:#2b2d33; }
+    .search { flex:1; min-width: 240px; }
+    .search input { width: 100%; padding: 12px 14px; background:#0f1115; color:var(--ink); border:1px solid #22242a; border-radius: var(--pill); }
+
+    .grid { display:grid; grid-template-columns: repeat(12, 1fr); gap: var(--grid-gap); }
+    .card { grid-column: span 4; background: var(--bg-2); border: 1px solid #1c1e24; border-radius: var(--radius); overflow:hidden; position:relative; box-shadow: var(--shadow-1); }
+    .thumb { position:relative; aspect-ratio: 16/9; overflow:hidden; }
+    .thumb img { width: 100%; height: 100%; object-fit: cover; filter: saturate(1.05) contrast(1.05); transform: scale(1.02); }
+    .thumb::after { content:""; position:absolute; inset:0; background: linear-gradient(180deg, rgba(0,0,0,.0), rgba(0,0,0,.4)); }
+    .badge { position:absolute; top:10px; left:10px; font-size:12px; padding:6px 10px; border:1px solid #2c2f36; border-radius: var(--pill); background: rgba(16,17,21,.7); backdrop-filter: blur(8px); }
+    .card-body { padding: 16px; display:grid; gap: 10px; }
+    .title { font-weight: 700; font-size: 16px; }
+    .meta { display:flex; gap: 10px; flex-wrap: wrap; color: var(--muted); font-size: 12px; }
+    .meta .dot::before{ content:"•"; margin: 0 6px; color:#3a3d46; }
+    .price { font-weight: 800; font-size: 15px; }
+    .card-actions{ display:flex; justify-content:space-between; align-items:center; gap:10px; }
+    .btn { display:inline-flex; align-items:center; gap:10px; padding:10px 14px; border-radius: var(--pill); border:1px solid #22242a; background: #121317; font-weight:700; font-size: 13px; }
+    .btn:hover { background:#171a20; }
+    @media (max-width: 1100px){ .card{ grid-column: span 6; } }
+    @media (max-width: 680px){ .card{ grid-column: span 12; } }
+
+    /* ===== LIGHTER TYPO & LAYOUT FOR SERIES ===== */
+    .section-intro {
+      max-width: 68ch;
+      color: var(--muted);
+      font-size: clamp(16px, 1.5vw, 18px);
+      line-height: 1.7;
+      margin: 10px 0 28px;
+    }
+    .series { padding: 72px 0; }
+    .series h2 { font-size: clamp(28px, 3.6vw, 42px); line-height: 1.15; }
+
+    .feature-row {
+      display: grid;
+      grid-template-columns: 1.1fr 1fr;
+      gap: clamp(18px, 2.4vw, 36px);
+      align-items: center;
+      margin: 28px 0 38px;
+    }
+    .feature-row.reverse { grid-template-columns: 1fr 1.1fr; }
+    @media (max-width: 980px) {
+      .feature-row, .feature-row.reverse { grid-template-columns: 1fr; }
+    }
+
+    /* Media container — frames removed */
+    .feature-media {
+      border: none;                 /* removed frame */
+      border-radius: 0;             /* no rounded corners */
+      overflow: hidden;
+      background: none;             /* no glass bg */
+      box-shadow: none;             /* no shadow */
+      min-height: 280px;
+      display: grid;
+      place-items: center;
+      aspect-ratio: 16/9;
+    }
+    .feature-media img, .feature-media video { width: 100%; height: 100%; object-fit: cover; }
+
+    .feature-copy h3 { margin: 0 0 10px; font-size: clamp(18px, 2vw, 22px); }
+    .feature-copy p { color: var(--muted); margin: 0 0 14px; font-size: clamp(15px, 1.4vw, 17px); }
+    .bullets { display: grid; gap: 8px; margin: 12px 0 0; }
+    .bullets li { list-style: none; position: relative; padding-left: 18px; color: var(--muted); font-size: 15px; }
+    .bullets li::before { content: "•"; position: absolute; left: 0; top: 0; color: #6e7380; }
+    .pills { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+    .pill { background:#121317; color:var(--muted); border:1px solid #22242a; padding:8px 12px; border-radius: 999px; font-size: 12px; }
+    .note { color: var(--muted); font-size: 13px; margin-top: 6px; opacity: .9; }
+
+    /* ===== About (video on right) ===== */
+    .about{position:relative}
+    .about-wrap{display:grid; grid-template-columns: 1.1fr 1fr; gap:36px; align-items:center}
+    .about h2{margin:0 0 10px}
+    .about p{color:var(--muted); max-width:65ch}
+    .about-media{border:1px solid #1c1e24; border-radius:28px; overflow:hidden; background:#0f1012; box-shadow:0 25px 80px rgba(0,0,0,.55)}
+    .about-media video{display:block; width:100%; height:auto}
+    @media (max-width:980px){ .about-wrap{grid-template-columns:1fr} }
+
+    /* ===== Footer (minimal) ===== */
+    footer { padding: 44px 0 56px; border-top: 1px solid var(--line); background: #0a0b0d; }
+    .footer-min { display:grid; place-items:center; gap: 10px; text-align:center; }
+    .footer-min img.logo-lg { height: 46px; width:auto; filter: drop-shadow(0 6px 12px rgba(0,0,0,.5)); }
+    .small { color: var(--muted); font-size: 12px; }
+  </style>
+</head>
+<body>
+  <!-- ===== NAVBAR ===== -->
+  <header>
+    <div class="container nav">
+      <a class="brand" href="#top" aria-label="AKYS home">
+        <img class="logo" src="assets/AKYS_logo.png" alt="AKYS logo" />
+        <span class="tagline">Eye’s for AI’s</span>
+      </a>
+      <nav class="links">
+        <a href="#datasets" data-i18n="nav.datasets">Datasets</a>
+        <a href="#horizon" data-i18n="nav.road">Road Horizon</a>
+        <a href="#pathfinder" data-i18n="nav.pathfinder">Pathfinder</a>
+        <a href="#cities" data-i18n="nav.cities">For Municipalities</a>
+        <a href="#contact" class="cta" data-i18n="nav.contact">Contact</a>
+        <div class="cta" style="margin-left:8px; gap:6px;">
+          <span style="font-weight:600; font-size:12px; color:#b3b6bb;">Lang</span>
+          <button class="btn lang-switch" style="padding:6px 10px;" data-lang="en">EN</button>
+          <button class="btn lang-switch" style="padding:6px 10px;" data-lang="lt">LT</button>
+        </div>
+      </nav>
+      <button class="burger cta" aria-label="Open menu" onclick="toggleMenu()">Menu</button>
+    </div>
+  </header>
+
+  <!-- ===== HERO with LiDAR background ===== -->
+  <section class="hero" id="top">
+    <div class="hero-bg">
+      <video autoplay loop muted playsinline>
+        <source src="media/Lidar_blue.mp4" type="video/mp4">
+      </video>
+      <div class="hero-overlay"></div>
+    </div>
+
+    <div class="container hero-inner">
+      <div>
+        <div class="eyebrow" data-i18n="hero.eyebrow">MULTI-SENSOR DATASETS</div>
+        <h1 data-i18n="hero.title">Quality. Performance. Safety.<br>Real-world driving data.</h1>
+        <p data-i18n="hero.blurb">High-fidelity datasets captured with dual Hesai LiDARs, ZED stereo, global-shutter rigs, 5× fisheyes, LWIR thermal, GNSS-RTK, IMU, and environmental sensors. Privacy-safe by default (faces/plates blurred).</p>
+        <div class="buttons">
+          <a class="cta" href="#datasets" data-i18n="hero.ctaBrowse">Browse Datasets</a>
+        </div>
+      </div>
+      <!-- right column intentionally empty (background video does the visual) -->
+      <div></div>
+    </div>
+  </section>
+
+  <!-- ===== DATASETS / MARKETPLACE ===== -->
+  <section id="datasets">
+    <div class="container">
+      <div class="section-head">
+        <div>
+          <div class="eyebrow" data-i18n="market.eyebrow">CATALOG</div>
+          <h2 data-i18n="market.title">Datasets marketplace</h2>
+        </div>
+        <div class="filters">
+          <div class="chip active" data-tag="all" data-i18n="filters.all">All</div>
+          <div class="chip" data-tag="city" data-i18n="filters.city">City</div>
+          <div class="chip" data-tag="night" data-i18n="filters.night">Night</div>
+          <div class="chip" data-tag="lidar" data-i18n="filters.lidar">LiDAR</div>
+          <div class="search"><input id="search" data-i18n-placeholder="filters.search" placeholder="Search by city, tag, sensor…"></div>
+        </div>
+      </div>
+      <div id="grid" class="grid"></div>
+    </div>
+  </section>
+
+  <!-- ===== ROAD HORIZON SERIES ===== -->
+  <section id="horizon" class="series">
+    <div class="container">
+      <div class="section-head">
+        <div>
+          <div class="eyebrow" data-i18n="horizon.eyebrow">AKYS ROAD HORIZON SERIES</div>
+          <h2 data-i18n="horizon.title">AI-ready visual datasets derived from real-world driving</h2>
+        </div>
+      </div>
+
+      <p class="section-intro" data-i18n="horizon.p1">
+        The AKYS Road Horizon Series converts real-world vehicle recordings into structured, synchronized datasets optimized for computer vision, ADAS, and machine-learning development. Each capture originates from our 2K precision-mounted vision systems, processed through the proprietary AKYS pipeline to deliver high-quality, privacy-compliant, and training-ready data.
+      </p>
+
+      <!-- ====== FIRST ROW (Depth video left + content right) ====== -->
+      <div class="feature-row">
+        <figure class="feature-media">
+          <video autoplay loop muted playsinline preload="auto">
+            <source src="media/Depth.mp4" type="video/mp4">
+          </video>
+        </figure>
+        <div class="feature-copy">
+          <h3>What’s inside each Horizon bundle</h3>
+          <ul class="bullets">
+            <li>Privacy-safe video (faces/plates blurred, EU-compliant)</li>
+            <li>Object-annotated video (vehicles, pedestrians, signs, road features)</li>
+            <li>Lane segmentation + object distance overlays</li>
+            <li>Depth-mapped sequences (color & grayscale) + frame-level ML exports</li>
+            <li>COCO-format annotations for cross-framework training</li>
+            <li>GNSS/RTK tracks and weather context, all timestamp-aligned</li>
+          </ul>
+          <div class="pills">
+            <span class="pill">COCO</span>
+            <span class="pill">Depth (RGB/Gray)</span>
+            <span class="pill">Lane + Distance</span>
+            <span class="pill">EU Privacy</span>
+            <span class="pill">GNSS/RTK</span>
+            <span class="pill">Weather</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ====== SECOND ROW (Text left + LaneSeg video right) ====== -->
+      <div class="feature-row reverse">
+        <div class="feature-copy">
+          <h3>Time-synced and ready for training</h3>
+          <p>All layers are aligned across every frame and modality to ensure reliable correlation and plug-and-play ingestion into training pipelines.</p>
+          <ul class="bullets">
+            <li>Consistent naming + folder structure</li>
+            <li>Per-frame timestamps across all modalities</li>
+            <li>Drop-in compatible with common CV frameworks</li>
+          </ul>
+          <p class="note">Use Horizon for perception, mapping, scene understanding, and ADAS experiments.</p>
+        </div>
+        <figure class="feature-media">
+          <video autoplay loop muted playsinline preload="auto">
+            <source src="media/LaneSeg.mp4" type="video/mp4">
+          </video>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ===== PATHFINDER SERIES ===== -->
+  <section id="pathfinder" class="series">
+    <div class="container">
+      <div class="section-head">
+        <div>
+          <div class="eyebrow" data-i18n="path.eyebrow">AKYS PATHFINDER SERIES</div>
+          <h2 data-i18n="path.title">The complete multi-sensor dataset for spatial intelligence</h2>
+        </div>
+      </div>
+
+      <p class="section-intro" data-i18n="path.p1">
+        The AKYS Pathfinder Series represents the pinnacle of mobile sensing and data fusion — a fully instrumented vehicle platform engineered to capture the physical, visual, and environmental state of the world in real time. Each Pathfinder dataset is recorded using our flagship AKYS rig, integrating vision, LiDAR, thermal, acoustic, and environmental intelligence into one synchronized capture.
+      </p>
+
+      <div class="feature-row reverse">
+        <div class="feature-copy">
+          <h3 data-i18n="path.spec1.h">Full Sensor Array</h3>
+          <ul class="bullets">
+            <li>Dual Hesai LiDARs — front near-360° + rear tilted (road + overhead)</li>
+            <li>Dual ZED 2i stereo (front & rear)</li>
+            <li>Dual global-shutter stereo (forward-focused)</li>
+            <li>LWIR thermal camera</li>
+            <li>4 fisheyes around + top fisheye</li>
+            <li>2 road-texture cameras (front & rear)</li>
+            <li>Onboard cabin camera</li>
+          </ul>
+          <div class="pills">
+            <span class="pill">LiDAR</span><span class="pill">Stereo</span><span class="pill">LWIR</span>
+            <span class="pill">Fisheye 360°</span><span class="pill">Road Texture</span>
+          </div>
+        </div>
+        <figure class="feature-media">
+          <video autoplay muted loop playsinline width="100%" style="border-radius:12px; margin-top:1em;">
+            <source src="media/ZED_Depth.mp4" type="video/mp4">
+            Your browser does not support the video tag.
+          </video>
+
+        </figure>
+      </div>
+
+      <div class="feature-row">
+        <figure class="feature-media">
+          <video autoplay muted loop playsinline width="100%" style="border-radius:12px; margin-top:1em;">
+            <source src="media/ZED_Stereo.mp4" type="video/mp4">
+            Your browser does not support the video tag.
+          </video>
+
+        </figure>
+        <div class="feature-copy">
+          <h3 data-i18n="path.spec2.h">Precision &amp; Context</h3>
+          <ul class="bullets">
+            <li>GNSS-RTK centimeter-level geolocation + 6-axis IMU</li>
+            <li>Noise meter + AI stereo microphone for acoustic profiling</li>
+            <li>Environmental suite: temperature, humidity, CO₂, CH₂O, TVOC, PM2.5, PM10</li>
+            <li>Geiger radiation meter</li>
+            <li>All streams time-synchronized and geo-referenced</li>
+          </ul>
+          <p class="note" data-i18n="path.spec3.p">Each modality is aligned for fusion and export into industry-standard formats for mapping, research, robotics, and digital-twin generation.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== MUNICIPALITIES ===== -->
+  <section id="cities">
+    <div class="container">
+      <div class="section-head">
+        <div>
+          <div class="eyebrow" data-i18n="cities.eyebrow">FOR MUNICIPALITIES</div>
+          <h2 data-i18n="cities.title">City-scale visibility, updated continuously</h2>
+        </div>
+        <a class="btn" href="#contact" data-i18n="cities.cta">Book a briefing</a>
+      </div>
+      <div class="specs">
+        <div class="spec">
+          <h4 data-i18n="cities.asset1.h">Infrastructure Insights</h4>
+          <p data-i18n="cities.asset1.p">Detect signage issues, faded lane markings, guardrails, potholes, vegetation encroachment, and work-zone changes. Each capture includes position, time, and context sensors for auditability.</p>
+        </div>
+        <div class="spec">
+          <h4 data-i18n="cities.asset2.h">Coverage & Cadence</h4>
+          <p data-i18n="cities.asset2.p">We operate route programs that refresh high-value corridors weekly or monthly. Trend analysis highlights what changed and where attention is needed.</p>
+        </div>
+        <div class="spec">
+          <h4 data-i18n="cities.asset3.h">Simple Delivery</h4>
+          <p data-i18n="cities.asset3.p">Receive ready-to-use bundles: georeferenced video intelligence, LiDAR PCAPs, and machine-readable JSON layers compatible with GIS tools.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== ABOUT ===== -->
+  <section id="about" class="about reveal">
+    <div class="container about-wrap">
+      <div>
+        <div class="eyebrow" data-i18n="about2.eyebrow">ABOUT AKYS</div>
+        <h2 data-i18n="about2.title">Eyes on the road. Focus on the horizon.</h2>
+        <p data-i18n="about2.p1">
+          AKYS is a Lithuania-based spatial intelligence company headquartered in Vilnius, developing advanced multi-sensor systems for visual, environmental, and geospatial data collection. Operating across Lithuania and the Baltic region, we continuously capture, process, and structure real-world data to create high-fidelity, privacy-compliant datasets for AI, mapping, and autonomous technologies.
+        </p>
+        <p data-i18n="about2.p2">
+          Our mission is to make the physical world measurable, interpretable, and accessible — from city streets to open roads — empowering researchers, developers, and municipalities with the data needed to build the next generation of intelligent mobility and digital-twin environments.
+        </p>
+        <p class="small" style="margin-top:10px; color:var(--muted);" data-i18n="about2.tagline"><em>AKYS — the eyes fixed on the horizon.</em></p>
+      </div>
+
+      <!-- About image (replaces video) -->
+      <div class="about-media">
+        <img src="media/akys_about.png"
+            alt="AKYS LiDAR visualization"
+            style="width:100%; border-radius:14px; box-shadow:0 0 20px rgba(0,0,0,0.4);" />
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ===== CONTACT ===== -->
+  <section id="contact">
+    <div class="container">
+      <div class="section-head">
+        <div>
+          <div class="eyebrow">CONTACT</div>
+          <h2>Need a specific route or city?</h2>
+        </div>
+      </div>
+      <div class="specs">
+        <div class="spec">
+          <h4>Custom Capture</h4>
+          <p>We can plan and capture on demand (weather/time/route constraints). Get a quote within 24h.</p>
+        </div>
+        <div class="spec">
+          <h4>Partnerships</h4>
+          <p>Universities, municipalities, labs — ask about discounted access and joint research.</p>
+        </div>
+        <div class="spec">
+          <h4>Support</h4>
+          <p>Email: <a href="mailto:gm@akys.ai">gm@akys.ai</a> · Telegram/Signal available on request.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== FOOTER (MINIMAL) ===== -->
+  <footer>
+    <div class="container footer-min">
+      <img class="logo-lg" src="assets/AKYS_logo.png" alt="AKYS logo large">
+      <div class="small">© <span id="year"></span> AKYS. All rights reserved.</div>
+      <div class="small"><a href="mailto:gm@akys.ai">gm@akys.ai</a></div>
+    </div>
+  </footer>
+
+  <script>
+    // ===== Mobile menu
+    function toggleMenu(){
+      const links = document.querySelector('.links');
+      links.style.display = links.style.display === 'flex' ? 'none' : 'flex';
+      links.style.flexDirection = 'column';
+      links.style.background = '#0c0d10';
+      links.style.border = '1px solid #202228';
+      links.style.padding = '12px';
+      links.style.position = 'absolute';
+      links.style.right = '4vw';
+      links.style.top = '64px';
+      links.style.borderRadius = '12px';
+    }
+
+    // ===== Scroll reveals
+    const inView = new IntersectionObserver((entries)=>{
+      entries.forEach(e=>{ if(e.isIntersecting) e.target.classList.add('show'); })
+    }, { threshold: 0.14 });
+
+    // ===== Year
+    document.getElementById('year').textContent = new Date().getFullYear();
+
+    // ===== Marketplace demo data
+    const DATASETS = [
+      {id:'vilnius_day_lidar', title:'Vilnius Old Town — Day — LiDAR + Stereo', city:'Vilnius', tags:['city','lidar','stereo','day'], minutes:12, size:'9.2 GB', price:'€7.99', thumb:'https://images.unsplash.com/photo-1519671482749-fd09be7ccebf?q=80&w=1200&auto=format&fit=crop'},
+      {id:'kaunas_night_rain', title:'Kaunas Ring — Night Rain — Multi-sensor', city:'Kaunas', tags:['city','night','rain','lidar','thermal'], minutes:18, size:'12.5 GB', price:'€8.99', thumb:'https://images.unsplash.com/photo-1508057198894-247b23fe5ade?q=80&w=1200&auto=format&fit=crop'},
+      {id:'klaipeda_port_wet', title:'Klaipėda Port — Wet roads — LiDAR + Fisheye', city:'Klaipėda', tags:['city','rain','lidar'], minutes:9, size:'6.1 GB', price:'€6.99', thumb:'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?q=80&w=1200&auto=format&fit=crop'},
+      {id:'snow_forest', title:'Aukštaitija Snow — Rural — Thermal focus', city:'Aukštaitija', tags:['snow','thermal'], minutes:11, size:'5.7 GB', price:'€6.99', thumb:'https://images.unsplash.com/photo-1482192596544-9eb780fc7f66?q=80&w=1200&auto=format&fit=crop'},
+      {id:'night_highway', title:'A1 Highway — Night — ZED + LiDAR', city:'A1', tags:['night','stereo','lidar'], minutes:15, size:'10.4 GB', price:'€7.99', thumb:'https://images.unsplash.com/photo-1519681393784-d120267933ba?q=80&w=1200&auto=format&fit=crop'},
+      {id:'city_day_mix', title:'Vilnius CBD — Day — Full stack', city:'Vilnius', tags:['city','day','lidar','stereo','thermal'], minutes:13, size:'9.9 GB', price:'€8.49', thumb:'https://images.unsplash.com/photo-1469474968028-56623f02e42e?q=80&w=1200&auto=format&fit=crop'}
+    ];
+
+    const grid = document.getElementById('grid');
+    function cardHTML(d){
+      const tags = d.tags.join(' • ');
+      return (
+        '<article class="card reveal" data-tags="'+d.tags.join(',')+'" data-title="'+(d.title+' '+d.city).toLowerCase()+'">\n'
+        + '  <div class="thumb">\n'
+        + '    <img src="'+d.thumb+'" alt="'+d.title+'" loading="lazy">\n'
+        + '    <div class="badge">'+d.city+'</div>\n'
+        + '  </div>\n'
+        + '  <div class="card-body">\n'
+        + '    <div class="title">'+d.title+'</div>\n'
+        + '    <div class="meta">'+tags+' <span class="dot"></span> '+d.minutes+' min <span class="dot"></span> '+d.size+'</div>\n'
+        + '    <div class="card-actions">\n'
+        + '      <div class="price">'+d.price+'</div>\n'
+        + '      <a class="btn" href="#">Details</a>\n'
+        + '    </div>\n'
+        + '  </div>\n'
+        + '</article>'
+      );
+    }
+    function render(items){
+      grid.innerHTML = items.map(cardHTML).join('');
+      document.querySelectorAll('.reveal').forEach(el => inView.observe(el));
+    }
+    render(DATASETS);
+
+    // filters
+    function applyFilters(tag, q){
+      let items = DATASETS;
+      if(tag && tag !== 'all') items = items.filter(d => d.tags.includes(tag));
+      if(q) items = items.filter(d => (d.title+" "+d.city+" "+d.tags.join(' ')).toLowerCase().includes(q));
+      render(items);
+    }
+    document.querySelectorAll('.chip').forEach(c => c.addEventListener('click', () => {
+      document.querySelectorAll('.chip').forEach(x=>x.classList.remove('active')); c.classList.add('active');
+      const tag = c.dataset.tag; const q = document.getElementById('search').value.trim().toLowerCase();
+      applyFilters(tag, q);
+    }));
+    document.getElementById('search').addEventListener('input', (e)=>{
+      const active = document.querySelector('.chip.active') ? document.querySelector('.chip.active').dataset.tag : 'all';
+      applyFilters(active, e.target.value.trim().toLowerCase());
+    });
+
+    // ===== i18n dictionary (EN + LT) =====
+    const T = {
+      en: {
+        'nav.datasets':'Datasets', 'nav.road':'Road Horizon', 'nav.pathfinder':'Pathfinder', 'nav.cities':'For Municipalities', 'nav.contact':'Contact',
+
+        'hero.eyebrow':'MULTI-SENSOR DATASETS', 'hero.title':'Quality. Performance. Safety.\nReal-world driving data.', 'hero.blurb':'High-fidelity datasets captured with dual Hesai LiDARs, ZED stereo, global-shutter rigs, 5× fisheyes, LWIR thermal, GNSS-RTK, IMU, and environmental sensors. Privacy-safe by default (faces/plates blurred).', 'hero.ctaBrowse':'Browse Datasets',
+
+        'market.eyebrow':'CATALOG', 'market.title':'Datasets marketplace',
+        'filters.all':'All', 'filters.city':'City', 'filters.night':'Night', 'filters.lidar':'LiDAR', 'filters.search':'Search by city, tag, sensor…',
+
+        'horizon.eyebrow':'AKYS ROAD HORIZON SERIES',
+        'horizon.title':'AI-ready visual datasets derived from real-world driving',
+        'horizon.p1':'The AKYS Road Horizon Series converts real-world vehicle recordings into structured, synchronized datasets optimized for computer vision, ADAS, and machine-learning development. Each capture originates from our 2K precision-mounted vision systems, processed through the proprietary AKYS pipeline to deliver high-quality, privacy-compliant, and training-ready data.',
+        'horizon.spec1.h':'Dataset Composition',
+        'horizon.spec1.p':'Blurred privacy-safe video; object-annotated video; lane segmentation and distance-estimation overlays; depth-mapped sequences (color & grayscale) with frame-level ML exports; COCO-format annotations; GNSS/RTK positional data and weather context — all precisely timestamped.',
+        'horizon.spec2.h':'Time-Synchronized',
+        'horizon.spec2.p':'All layers are aligned across every frame and modality to ensure reliable correlation and plug-and-play integration with training pipelines.',
+        'horizon.spec3.h':'Built for Training',
+        'horizon.spec3.p':'Clean structure, consistent naming, and compatibility with common frameworks make Horizon an ideal foundation for perception, mapping, and scene-understanding research.',
+
+        'path.eyebrow':'AKYS PATHFINDER SERIES',
+        'path.title':'The complete multi-sensor dataset for spatial intelligence',
+        'path.p1':'The AKYS Pathfinder Series represents the pinnacle of mobile sensing and data fusion — a fully instrumented vehicle platform engineered to capture the physical, visual, and environmental state of the world in real time. Each Pathfinder dataset is recorded using our flagship AKYS rig, integrating vision, LiDAR, thermal, acoustic, and environmental intelligence into one synchronized capture.',
+        'path.spec1.h':'Full Sensor Array',
+        'path.spec1.p':'Dual Hesai LiDARs (front near-360° and rear tilted for road & overhead infrastructure), dual ZED 2i stereo cameras (front & rear), dual global-shutter stereo cameras (forward-focused), one thermal LWIR camera, 4 fisheye surround cameras plus top-mounted fisheye, two road-texture cameras (front & rear), and an onboard cabin camera.',
+        'path.spec2.h':'Precision & Context',
+        'path.spec2.p':'GNSS-RTK for centimeter-level geolocation, IMU for 6-axis motion, noise meter and AI stereo microphone for acoustic profiling, environmental suite (temperature, humidity, CO₂, CH₂O, TVOC, PM2.5, PM10), and a Geiger radiation meter — all time-synchronized and geo-referenced.',
+        'path.spec3.h':'Interoperability',
+        'path.spec3.p':'Each modality is aligned for fusion and export into industry-standard formats for mapping, research, robotics, and digital-twin generation.',
+
+        'cities.eyebrow':'FOR MUNICIPALITIES','cities.title':'City-scale visibility, updated continuously','cities.cta':'Book a briefing','cities.asset1.h':'Infrastructure Insights','cities.asset1.p':'Detect signage issues, faded lane markings, guardrails, potholes, vegetation encroachment, and work-zone changes. Each capture includes position, time, and context sensors for auditability.','cities.asset2.h':'Coverage & Cadence','cities.asset2.p':'We operate route programs that refresh high-value corridors weekly or monthly. Trend analysis highlights what changed and where attention is needed.','cities.asset3.h':'Simple Delivery','cities.asset3.p':'Receive ready-to-use bundles: georeferenced video intelligence, LiDAR PCAPs, and machine-readable JSON layers compatible with GIS tools.',
+
+        'about2.eyebrow':'ABOUT AKYS','about2.title':'Eyes on the road. Focus on the horizon.','about2.p1':'AKYS is a Lithuania-based spatial intelligence company headquartered in Vilnius, developing advanced multi-sensor systems for visual, environmental, and geospatial data collection. Operating across Lithuania and the Baltic region, we continuously capture, process, and structure real-world data to create high-fidelity, privacy-compliant datasets for AI, mapping, and autonomous technologies.','about2.p2':'Our mission is to make the physical world measurable, interpretable, and accessible — from city streets to open roads — empowering researchers, developers, and municipalities with the data needed to build the next generation of intelligent mobility and digital-twin environments.','about2.tagline':'<em>AKYS — the eyes fixed on the horizon.</em>',
+
+        'footer.horizonstrap':'AKYS — the eyes fixed on the horizon.'
+      },
+
+      lt: {
+        'nav.datasets':'Rinkiniai', 'nav.road':'Road Horizon', 'nav.pathfinder':'Pathfinder', 'nav.cities':'Savivaldybėms', 'nav.contact':'Kontaktai',
+
+        'hero.eyebrow':'DAUGIAJUTIMIAI DUOMENYS', 'hero.title':'Kokybė. Našumas. Saugumas.\nTikro pasaulio eismo duomenys.', 'hero.blurb':'Aukštos raiškos rinkiniai su dviem Hesai LiDAR, ZED stereo, global shutter sistemomis, 5× žuvies akimis, termovizija, GNSS-RTK, IMU ir aplinkos jutikliais. Privatumas užtikrinamas (veidai/valst. numeriai suliejami).', 'hero.ctaBrowse':'Peržiūrėti rinkinius',
+
+        'market.eyebrow':'KATALOGAS', 'market.title':'Rinkinių turgus',
+        'filters.all':'Visi', 'filters.city':'Miestas', 'filters.night':'Naktis', 'filters.lidar':'LiDAR', 'filters.search':'Ieškoti pagal miestą, žymę, jutiklį…',
+
+        'horizon.eyebrow':'AKYS ROAD HORIZON SERIJA',
+        'horizon.title':'AI paruošti vaizdiniai rinkiniai iš realaus eismo',
+        'horizon.p1':'AKYS Road Horizon serija paverčia realių kelionių įrašus į struktūruotus, sinchronizuotus duomenų rinkinius, optimizuotus kompiuterinei regai, ADAS ir ML kūrimui. Kiekvienas važiavimas fiksuotas 2K tiksliai sumontuotomis vaizdo sistemomis ir apdorotas mūsų AKYS pipeline – užtikrinant aukštą kokybę, privatumo atitiktį ir parengtį mokymui.',
+        'horizon.spec1.h':'Rinkinio sudėtis',
+        'horizon.spec1.p':'Privatūs (sulieti) vaizdo įrašai; objektų anotuotas video; eismo juostų segmentacija ir atstumų sluoksniai; gylio vaizdai (spalvoti ir pilki) su kadrų eksportu ML; COCO formato anotacijos; GNSS/RTK pozicija ir orų kontekstas – viskas tiksliai sužymėta laiku.',
+        'horizon.spec2.h':'Laiko sinchronizacija',
+        'horizon.spec2.p':'Visi sluoksniai sulygiuoti per kiekvieną kadrą ir modalumą, kad būtų patikima koreliacija ir lengvas įtraukimas į mokymo pipeline’us.',
+        'horizon.spec3.h':'Sukurta mokymui',
+        'horizon.spec3.p':'Švari struktūra, nuoseklus pavadinimų formatas ir suderinamumas su įprastais FW – tvirta bazė suvokimui, žemėlapiams ir scenų supratimui.',
+
+        'path.eyebrow':'AKYS PATHFINDER SERIJA',
+        'path.title':'Pilnas daugiasensoris rinkinys erdvinei analitikai',
+        'path.p1':'AKYS Pathfinder serija – tai mobilių jutiklių ir duomenų sintezės viršūnė: visiškai instrumentuota platforma, realiu laiku fiksuojanti fizinę, vizualinę ir aplinkos būseną. Kiekvienas rinkinys kaupiamas su mūsų AKYS rig – sujungiant vaizdą, LiDAR, termoviziją, akustiką ir aplinkos signalus į vieną sinchronizuotą įrašą.',
+        'path.spec1.h':'Pilna jutiklių seka',
+        'path.spec1.p':'Du Hesai LiDAR (priekyje beveik 360°, gale pakrypęs keliui ir infrastruktūrai), du ZED 2i stereo (priekyje ir gale), dvi global shutter stereo kameros (į priekį), termovizorinė LWIR, 4 „fisheye“ aplinkui + viršutinė, dvi kelio tekstūros kameros (priekyje/gale) ir salono kamera.',
+        'path.spec2.h':'Tikslumas ir kontekstas',
+        'path.spec2.p':'GNSS-RTK centimetrinis tikslumas, IMU 6 ašių judesiui, triukšmo matuoklis ir AI stereo mikrofonas akustikai, aplinkos rinkinys (temperatūra, drėgmė, CO₂, CH₂O, TVOC, PM2.5, PM10) bei Geiger radiacijos matuoklis – visa tai sinchronizuota ir sukoordinuota.',
+        'path.spec3.h':'Sąveika',
+        'path.spec3.p':'Visi modalumai sulygiuoti sintezei ir eksportui į pramoninius formatus – žemėlapiams, tyrimams, robotikai ir skaitmeniniams dvyniams.',
+
+        'cities.eyebrow':'SAVIVALDYBĖMS','cities.title':'Miesto matomumas, nuolat atnaujinamas','cities.cta':'Užsakyti pristatymą','cities.asset1.h':'Infrastruktūros įžvalgos','cities.asset1.p':'Aptinkame ženklų problemas, nusitrynusias juostas, atitvarus, duobes, augmenijos skverbimąsi ir darbų zonas. Kiekvienas maršrutas su laiko/pozicijos ir konteksto jutikliais – patikrinamumui.','cities.asset2.h':'Aprėptis ir periodiškumas','cities.asset2.p':'Vykdome maršrutų programas: svarbios arterijos atnaujinamos kas savaitę ar mėnesį. Pokyčių analizė parodo, kur reikia dėmesio.','cities.asset3.h':'Paprastas pateikimas','cities.asset3.p':'Pristatome paruoštus paketus: georeferencijuota vaizdo analitika, LiDAR PCAP ir JSON sluoksniai, suderinami su GIS.',
+
+        'about2.eyebrow':'APIE AKYS','about2.title':'Akys į kelią. Žvilgsnis į horizontą.','about2.p1':'AKYS – erdvinės inteligencijos įmonė iš Lietuvos, įsikūrusi Vilniuje. Kuriame daugiasensorines sistemas vizualiniams, aplinkos ir geoduomenims rinkti. Veikiame Lietuvoje ir Baltijos regione, nuolat kaupdami ir apdorodami duomenis į aukštos kokybės, privatumą užtikrinančius rinkinius AI, žemėlapiams ir autonomikai.','about2.p2':'Mūsų tikslas – padaryti fizinį pasaulį išmatuojamą, interpretuojamą ir pasiekiamą – nuo miestų gatvių iki atvirų kelių – suteikiant tyrėjams, kūrėjams ir savivaldybėms duomenis naujos kartos mobilumui ir „digital twin“.','about2.tagline':'<em>AKYS — žvilgsnis į tolimą horizontą.</em>',
+
+        'footer.horizonstrap':'AKYS — žvilgsnis į tolimą horizontą.'
+      }
+    };
+
+    function setLang(lang){
+      const dict = T[lang] || T.en;
+      document.querySelectorAll('[data-i18n]').forEach(el=>{
+        const key = el.getAttribute('data-i18n');
+        if(dict[key]) el.innerHTML = dict[key];
+      });
+      document.querySelectorAll('[data-i18n-placeholder]').forEach(el=>{
+        const key = el.getAttribute('data-i18n-placeholder');
+        if(dict[key]) el.setAttribute('placeholder', dict[key]);
+      });
+      localStorage.setItem('akys_lang', lang);
+    }
+    document.querySelectorAll('.lang-switch').forEach(btn => btn.addEventListener('click', ()=> setLang(btn.dataset.lang)));
+    setLang(localStorage.getItem('akys_lang') || 'en');
+
+    (function runSelfTests(){
+      try{
+        console.assert(typeof T.en['nav.datasets']==='string', 'i18n EN missing');
+        console.assert(document.getElementById('grid'), '#grid exists');
+        const before = document.querySelectorAll('#grid .card').length; render(DATASETS); const after = document.querySelectorAll('#grid .card').length; console.assert(after === DATASETS.length, 'grid render count mismatch');
+        console.log('AKYS UI self-tests passed');
+      }catch(err){ console.error('AKYS UI self-tests failed', err); }
+    })();
+  </script>
+</body>
+</html>
