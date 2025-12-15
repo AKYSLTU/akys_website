@@ -1,0 +1,29 @@
+name = "akys-payments"
+main = "worker.js"
+compatibility_date = "2025-12-01"
+compatibility_flags = ["nodejs_compat"]
+
+# --- Custom domain route ---
+routes = [
+  { pattern = "api.akys.ai/*", zone_name = "akys.ai" }
+]
+
+workers_dev = false
+preview_urls = false
+
+# --- R2 binding ---
+[[r2_buckets]]
+binding = "DATASETS"
+bucket_name = "road-horizon-datasets"
+
+# --- KV namespace (keep if you use it) ---
+[[kv_namespaces]]
+binding = "TOKENS_KV"
+id = "8a2b3e9456294942b5b07de8228ee15a"
+
+# --- D1 database ---
+[[d1_databases]]
+binding = "DB"
+database_name = "akys_payments"
+database_id = "08d27e8b-7f73-4a48-b7c8-ca3eb90d58a8"
+
