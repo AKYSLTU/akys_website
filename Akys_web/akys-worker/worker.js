@@ -51,7 +51,7 @@ export default {
     if (url.pathname.startsWith("/download/") && req.method === "GET") {
       const tokenId = url.pathname.split("/").pop();
       const idx = url.searchParams.get("i"); // optional index if token maps to multiple keys
-      return gatedDownload(tokenId, idx, env, origin);
+      return gatedDownload(req, tokenId, idx, env, origin);
     }
 
     // --- Webhooks ---
@@ -65,9 +65,15 @@ export default {
       return cryptoWebhook(req, env);
     }
 
-    if (url.pathname === "/api/create-checkout-session" && req.method === "POST") {
-      return createCheckoutSession(req, env, origin);
-    }
+  if (url.pathname === "/api/create-checkout-session" && req.method === "POST") {
+    return createCheckoutSession(req, env, origin);
+  }
+  if (url.pathname === "/api/reindex" && req.method === "POST") {
+    return reindexDatasets(env, origin);
+  }
+  if (url.pathname === "/api/download" && req.method === "GET") {
+    return apiDownload(req, env);
+  }
 
     // Default OK
     return new Response("OK", { status: 200, headers: corsHeaders(origin) });
@@ -78,12 +84,34 @@ export default {
 
 async function listDatasets(url, env, origin) {
   const out = [];
+  // Build map of private zip files keyed by normalized base name (prefer KV index if present)
+  const zipMap = new Map();
+  let zipCount = 0;
+  const kv = kvStore(env);
+  const cachedIndex = kv ? await kv.get("dataset_zip_index", { type: "json" }).catch(() => null) : null;
+  if (cachedIndex && cachedIndex.map) {
+    for (const [id, key] of Object.entries(cachedIndex.map)) {
+      if (typeof key === "string" && key) {
+        zipMap.set(normalizeKey(id), key);
+        zipCount += 1;
+      }
+    }
+  }
+  if (zipMap.size === 0) {
+    const built = await buildZipInventory(env);
+    zipCount = built.count;
+    built.map.forEach((v, k) => zipMap.set(k, v));
+  }
+
   let cursor;
+  let readyCount = 0;
+  let matchedCount = 0;
 
   do {
     const page = await env.DATASETS.list({ prefix: "ready/", delimiter: "/", cursor });
     for (const p of page.delimitedPrefixes || []) {
       const id = p.replace(/^ready\//, "").replace(/\/$/, "");
+      readyCount += 1;
 
       // dataset_info.json (optional metadata)
       let info = {};
@@ -123,6 +151,9 @@ async function listDatasets(url, env, origin) {
       const zipKey =
         pickZipKey(info, infoFront, infoRear) ||
         (id ? `private/${id}.zip` : null);
+      const normId = normalizeKey(id);
+      const resolvedZip = (normId && zipMap.get(normId)) || zipKey;
+      if (normId && zipMap.get(normId)) matchedCount += 1;
 
       // pick thumbnail
       const preferred = [`${p}screenshots/cover.jpg`, `${p}screenshots/cover.png`, `${p}screenshots/cover.webp`];
@@ -145,8 +176,8 @@ async function listDatasets(url, env, origin) {
         minutes: info.minutes ?? null,
         size: info.size ?? null,
         price: info.price ?? null,
-        zip_key: zipKey,
-        r2_key: zipKey,
+        zip_key: resolvedZip,
+        r2_key: resolvedZip,
         thumb,
         prefix: p,
         hasReadme: Boolean(await env.DATASETS.head(`${p}README.md`)),
@@ -155,6 +186,7 @@ async function listDatasets(url, env, origin) {
     }
     cursor = page.cursor;
   } while (cursor);
+  console.log("DATASETS_LIST_COUNTS", { ready: readyCount, privateZips: zipCount, matched: matchedCount });
 
   const headers = {
     ...corsHeaders(origin),
@@ -209,7 +241,7 @@ async function claimTokens(url, env, origin) {
         const left = (tokenObj.maxDownloads ?? 1) - (tokenObj.downloads ?? 0);
         tokens.push({
           token: tkId,
-          r2_key: tokenObj.keys?.[0] || "",
+          r2_key: tokenObj.r2_key || tokenObj.keys?.[0] || "",
           title: tokenObj.title || "",
           downloadsLeft: Math.max(left, 0),
           url: url.origin + "/download/" + tkId
@@ -221,22 +253,36 @@ async function claimTokens(url, env, origin) {
   return json({ tokens }, 200, origin);
 }
 
-async function gatedDownload(tokenId, i, env, origin) {
+async function gatedDownload(req, tokenId, i, env, origin) {
   const token = await env.TOKENS_KV.get(tokenId, { type: "json" });
-  if (!token) return new Response("Link expired or invalid", { status: 410, headers: corsHeaders(origin) });
+  if (!token) return new Response(JSON.stringify({ error: "Link expired or invalid" }), { status: 410, headers: { ...corsHeaders(origin), "content-type": "application/json" } });
 
   // pick key (single-file tokens recommended; otherwise ?i=)
   const idx = Number.isInteger(Number(i)) ? Number(i) : 0;
-  const key = token.keys?.[idx];
-  if (!key) return new Response("Invalid file index", { status: 400, headers: corsHeaders(origin) });
+  const key = token.r2_key || token.zip_key || token.r2Key || (token.keys?.[idx]);
+  if (!key) return new Response(JSON.stringify({ error: "Invalid file index" }), { status: 400, headers: { ...corsHeaders(origin), "content-type": "application/json" } });
 
   // enforce usage
   const used = token.downloads ?? 0;
   const max = token.maxDownloads ?? 1;
-  if (used >= max) return new Response("Download limit reached", { status: 410, headers: corsHeaders(origin) });
+  if (req.method !== "HEAD" && used >= max) {
+    return new Response(JSON.stringify({ error: "Download limit reached" }), { status: 410, headers: { ...corsHeaders(origin), "content-type": "application/json" } });
+  }
+
+  if (req.method === "HEAD") {
+    const objHead = await env.DATASETS.head(key);
+    if (!objHead) return new Response(JSON.stringify({ error: "File not found" }), { status: 404, headers: { ...corsHeaders(origin), "content-type": "application/json" } });
+    const h = new Headers();
+    h.set("content-type", guessType(key));
+    h.set("content-disposition", `attachment; filename="${basename(key)}"`);
+    if (typeof objHead.size === "number") h.set("content-length", String(objHead.size));
+    const merged = new Headers({ ...corsHeaders(origin) });
+    for (const [k, v] of h.entries()) merged.set(k, v);
+    return new Response(null, { status: 200, headers: merged });
+  }
 
   const obj = await env.DATASETS.get(key);
-  if (!obj) return new Response("File not found", { status: 404, headers: corsHeaders(origin) });
+  if (!obj) return new Response(JSON.stringify({ error: "File not found" }), { status: 404, headers: { ...corsHeaders(origin), "content-type": "application/json" } });
 
   // bump counter (best-effort)
   token.downloads = used + 1;
@@ -275,28 +321,33 @@ async function stripeWebhook(req, env) {
           try { parsed = JSON.parse(orderRow.items_json || "[]"); } catch { parsed = []; }
           const keys = [];
           for (const it of parsed) {
-            const k = it?.r2_key;
+            const k = it?.r2_key || it?.storage_zip_key || it?.zip_key;
             const qty = Math.min(99, Math.max(1, Number(it?.qty) || 1));
             if (k) {
               for (let i = 0; i < qty; i++) keys.push(k);
             }
           }
           if (keys.length > 0) {
-            const tokenId = `tk_${cryptoRandom(24)}`;
-            const tokenData = {
-              keys,
-              ttl: 72 * 3600,
-              maxDownloads: 3,
-              downloads: 0,
-              orderId: orderId,
-              buyerEmail: session.customer_details?.email || session.customer_email || ""
-            };
-            await env.TOKENS_KV.put(tokenId, JSON.stringify(tokenData), { expirationTtl: tokenData.ttl });
+            const tokens = [];
+            for (const k of keys) {
+              const tokenId = `tk_${cryptoRandom(24)}`;
+              const tokenData = {
+                r2_key: k,
+                ttl: 7 * 24 * 3600,
+                maxDownloads: 3,
+                downloads: 0,
+                orderId: orderId,
+                buyerEmail: session.customer_details?.email || session.customer_email || ""
+              };
+              await env.TOKENS_KV.put(tokenId, JSON.stringify(tokenData), { expirationTtl: tokenData.ttl });
+              tokens.push(tokenId);
+            }
             await env.DB.prepare("UPDATE orders SET status = ? WHERE id = ?").bind("paid", orderId).run();
             const idxKey = `ord_${session.id}`;
             const existing = await env.TOKENS_KV.get(idxKey, { type: "json" }) || [];
-            existing.push(tokenId);
-            await env.TOKENS_KV.put(idxKey, JSON.stringify(existing), { expirationTtl: tokenData.ttl });
+            existing.push(...tokens);
+            await env.TOKENS_KV.put(idxKey, JSON.stringify(existing), { expirationTtl: 7 * 24 * 3600 });
+            await env.TOKENS_KV.put(`session:${session.id}`, JSON.stringify(tokens.map(tk => ({ token: tk, r2_key: keys[0], downloadsLeft: 3, url: `${session.metadata?.base_url || ""}/download/${tk}` }))), { expirationTtl: 7 * 24 * 3600 });
             return new Response("ok", { status: 200, headers: corsHeaders(origin) });
           }
         }
@@ -350,8 +401,8 @@ async function stripeWebhook(req, env) {
     for (const key of keys) {
       const tokenId = `tk_${cryptoRandom(24)}`;
       const tokenData = {
-        keys: [key],
-        ttl: 72 * 3600,          // 72h validity
+        r2_key: key,
+        ttl: 7 * 24 * 3600,
         maxDownloads: 3,
         downloads: 0,
         orderId: session.id,
@@ -444,6 +495,14 @@ async function createCheckoutSession(req, env, origin) {
   const items = [];
   const missing = [];
   let totalQty = 0;
+  let zipIndex = null;
+  try {
+    zipIndex = await env.TOKENS_KV.get("dataset_zip_index", { type: "json" });
+  } catch (err) {
+    zipIndex = null;
+  }
+  const kv = kvStore(env);
+  const indexMap = kv && zipIndex && zipIndex.map && typeof zipIndex.map === "object" ? zipIndex.map : null;
 
   for (const raw of itemsInput) {
     const title = (raw?.title || "AKYS Dataset").trim();
@@ -452,8 +511,9 @@ async function createCheckoutSession(req, env, origin) {
     const priceEur = Number(raw?.price_eur ?? raw?.unit_price_eur) || 0;
     const qty = Math.min(99, Math.max(1, Number(raw?.quantity ?? raw?.qty) || 1));
     if (!storageKey && datasetId) {
-      storageKey = `private/${datasetId}.zip`;
-      console.warn("zip_key missing; falling back to dataset_id-derived key", { datasetId, storageKey });
+      const indexed = indexMap ? indexMap[datasetId] : null;
+      storageKey = indexed || `private/${datasetId}.zip`;
+      console.warn("zip_key missing; falling back to index/default key", { datasetId, storageKey, indexed: Boolean(indexed) });
     }
     if (storageKey && (!storageKey.startsWith("private/") || !storageKey.endsWith(".zip"))) {
       console.error("zip_key invalid format", { datasetId, storageKey });
@@ -480,8 +540,8 @@ async function createCheckoutSession(req, env, origin) {
   if (missing.length > 0) {
     console.error("create-checkout missing datasets", missing);
     return json(
-      { error: "Dataset not found", missing, hint: "Check storage_zip_key in dataset config" },
-      404,
+      { error: "Dataset not purchasable yet", missing, hint: "Check storage_zip_key in dataset config" },
+      409,
       origin
     );
   }
@@ -561,7 +621,84 @@ function discountRate(count) {
   return 0;
 }
 
+function normalizeKey(s) {
+  if (!s) return "";
+  return s
+    .toString()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]/g, "");
+}
+
 function basename(k) { return k.split("/").pop(); }
+
+function kvStore(env) {
+  return env.AKYS_KV || env.TOKENS_KV || null;
+}
+
+async function buildZipInventory(env) {
+  const map = new Map();
+  const rawMap = new Map();
+  let cursor;
+  let count = 0;
+  do {
+    const page = await env.DATASETS.list({ prefix: "private/", cursor });
+    for (const obj of page.objects || []) {
+      if (!obj.key.endsWith(".zip")) continue;
+      count += 1;
+      const base = basename(obj.key).replace(/\.zip$/i, "");
+      rawMap.set(base, obj.key);
+      map.set(normalizeKey(base), obj.key);
+    }
+    cursor = page.cursor;
+  } while (cursor);
+  return { map, rawMap, count };
+}
+
+
+async function reindexDatasets(env, origin) {
+  const readyIds = [];
+  let readyCursor;
+  do {
+    const page = await env.DATASETS.list({ prefix: "ready/", delimiter: "/", cursor: readyCursor });
+    for (const p of page.delimitedPrefixes || []) {
+      const id = p.replace(/^ready\//, "").replace(/\/$/, "");
+      if (id) readyIds.push(id);
+    }
+    readyCursor = page.cursor;
+  } while (readyCursor);
+
+  const built = await buildZipInventory(env);
+  const index = {};
+  let matched = 0;
+  for (const id of readyIds) {
+    const norm = normalizeKey(id);
+    const key = built.rawMap.get(id) || built.map.get(norm) || null;
+    if (key) matched += 1;
+    index[id] = key;
+    if (key && kvStore(env)) {
+      await kvStore(env).put(`inv:${id}`, key);
+    }
+  }
+
+  const payload = { version: 1, updatedAt: Date.now(), map: index, readyCount: readyIds.length, privateCount: built.count, matched };
+  if (kvStore(env)) {
+    await kvStore(env).put("dataset_zip_index", JSON.stringify(payload));
+    await kvStore(env).put("inv:last_reindex", String(Date.now()));
+  }
+  console.log("REINDEX_COMPLETE", payload);
+  return json({ ok: true, ...payload }, 200, origin);
+}
+
+async function apiDownload(req, env) {
+  const url = new URL(req.url);
+  const token = url.searchParams.get("token");
+  const idx = url.searchParams.get("i") ?? "0";
+  if (!token) return json({ error: "Missing token" }, 400);
+  return gatedDownload(req, token, idx, env, "*");
+}
+
 function ensureTrailingSlash(s) { return s.endsWith("/") ? s : s + "/"; }
 
 function guessType(k) {
