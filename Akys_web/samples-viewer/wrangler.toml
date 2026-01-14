@@ -1,0 +1,14 @@
+name = "samples-viewer"
+main = "src/index.js"
+compatibility_date = "2024-11-17"
+
+# Attach the R2 bucket "samples" to the Worker
+[[r2_buckets]]
+binding = "SAMPLES"
+bucket_name = "samples"
+
+# OPTIONAL: if you want to define route here instead of Dashboard:
+# Replace zone_name + pattern with your real values
+# [[routes]]
+# pattern = "viewer.akys.ai/*"
+# zone_name = "akys.ai"

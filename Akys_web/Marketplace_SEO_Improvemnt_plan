@@ -1,0 +1,69 @@
+Here’s a focused SEO plan tailored to the marketplace:
+
+Completed (Jan 2026):
+- Added Product + Breadcrumb JSON-LD on dataset pages with canonical URLs.
+- Added sitemap.xml + robots.txt (includes datasets from batch manifests).
+- Batch cards show short intros; Horizons grid is mobile-friendly.
+- Related datasets block on dataset pages (same batch) with “show more”.
+- Batch listings default to 4 items with a toggle; thumbnails fall back to screenshots.
+- SEO batch titles applied (Jan 2026 / Oct 2 / Oct 8).
+
+High-impact technical fixes
+
+Make every key page indexable with strong metadata:
+Ensure each dataset page has: unique <title> with location + date, <meta description> summarizing conditions/scene, og:image and og:title/description (already partly there).
+Add canonical URLs to prevent duplicates (/dataset/[slug]).
+Generate an XML sitemap with all datasets/batches (and update on deploy).
+Structured data (Schema.org):
+Add Product schema per dataset (name, description, price, availability, image, brand “AKYS”, sku=slug) and ItemList for batch/month pages.
+Add BreadcrumbList on dataset pages (Home > Horizons > Month > Batch > Dataset).
+Performance & mobile:
+Run Lighthouse and address LCP/CLS; ensure hero images use next/image with proper sizes and priority where needed.
+Verify all UI elements are tap-friendly on mobile (button sizes, spacing).
+Crawlability:
+Robots.txt allowing /horizons, /dataset/, /pathfinder, and listing sitemap.
+Avoid query-parameter duplicates; enforce lowercase slugs if possible.
+Content and on-page signals
+
+Batch and dataset copy:
+Use human-readable batch names (done) and add 1–2 sentence intros on batch pages highlighting location/date/conditions.
+On dataset pages, add short text blocks: location context, conditions, sensor setup (front+rear), annotation types; sprinkle long-tail keywords like “anonymized dashcam dataset”, “lane detection video”, “night snow driving dataset”.
+Internal linking:
+Add a “Related datasets” block on dataset pages (same batch, nearby time/location).
+Add a “Popular batches” section on the Horizons landing page.
+Media:
+Ensure thumbnails exist and render; use WebP where possible.
+Alt text on images: include location and date (e.g., “Vilnius night snow street 2026-01-01”).
+Trust & discoverability
+
+Company and contact:
+Add an “About / Contact sales / License” footer block with structured data for Organization.
+Display license summary and GDPR compliance clearly (already present—keep).
+Blog/landing pages:
+Create a few evergreen pages targeting search intent:
+“Snow/night driving datasets for AV perception”
+“European urban dashcam datasets with annotations”
+“Kaunas / Vilnius driving video datasets”
+Embed internal links to batches/datasets and include screenshots.
+Off-page and distribution
+
+Submit sitemap to Google Search Console; monitor coverage and fix errors.
+Get listed in relevant directories/forums (AV, CV datasets).
+Provide a free sample page with schema and high-quality content; link from home.
+Chat discovery (AI/LLM)
+
+Publish clear, crawlable product descriptions with pricing/tier info (LLMs ingest public pages).
+Add a concise FAQ page with common queries (“Are plates blurred?”, “License terms”, “Download format”)—helps both SEO and LLMs.
+Ensure all text is plain HTML (not rendered only via JS); your Next.js SSG is good for this.
+Quick wins you can implement now
+
+Add structured data (Product, ItemList, Breadcrumb) and canonical tags on dataset and batch pages.
+Generate and expose sitemap.xml + robots.txt pointing to it.
+Add short intro text per batch (location/date/conditions) on the Horizons page and dataset pages (conditions/sensor summary).
+Add “Related datasets” block on dataset pages (same batch).
+Ensure image URLs are valid WebP/JPG and have alt text.
+If you want, I can implement the next step set:
+
+Sitemap generation (batches + datasets) and robots.txt update.
+Product + ItemList + Breadcrumb JSON-LD on dataset and batch/month pages.
+Short intro text per batch (using existing batch_title, date range, count).

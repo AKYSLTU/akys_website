@@ -1,0 +1,11 @@
+name = "akys-r2-proxy"
+main = "src/index.js"
+compatibility_date = "2024-09-01"
+
+r2_buckets = [
+  { binding = "DATASETS", bucket_name = "road-horizon-datasets" }
+]
+
+routes = [
+  { pattern = "akys.ai/r2/*", zone_name = "akys.ai" }
+]

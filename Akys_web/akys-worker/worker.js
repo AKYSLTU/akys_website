@@ -31,6 +31,14 @@ export default {
     return json({ ok: true, name: "akys-payments" }, 200, origin);
   }
 
+  if (url.pathname === "/api/warm" && req.method === "GET") {
+    return json({ ok: true }, 200, origin);
+  }
+
+  if (url.pathname === "/api/cart-hydrate" && req.method === "GET") {
+    return cartHydrate(req, env, origin);
+  }
+
     // --- Live catalog listing ---
     if (url.pathname === "/api/datasets" && req.method === "GET") {
       return listDatasets(url, env, origin);
@@ -45,6 +53,10 @@ export default {
     // --- Token claim after checkout success (Stripe/crypto) ---
   if (url.pathname === "/claim" && req.method === "GET") {
     return claimTokens(url, env, origin);
+  }
+  if (url.pathname.startsWith("/dl/") && req.method === "GET") {
+    const tokenId = url.pathname.split("/").pop();
+    return gatedDownload(req, tokenId, url.searchParams.get("i"), env, origin);
   }
 
     // --- Gated download link ---
@@ -115,7 +127,10 @@ async function listDatasets(url, env, origin) {
 
       // dataset_info.json (optional metadata)
       let info = {};
-      const infoObj = await env.DATASETS.get(`${p}dataset_info.json`);
+      let infoObj = await env.DATASETS.get(`${p}dataset_info.json`);
+      if (!infoObj) {
+        infoObj = await env.DATASETS.get(`${p}dataset_public.json`);
+      }
       if (infoObj) { try { info = await infoObj.json(); } catch { /* ignore */ } }
 
       // optional front/rear info files (prefer explicit zip keys)
@@ -202,6 +217,83 @@ async function listDatasets(url, env, origin) {
   });
 }
 
+async function cartHydrate(req, env, origin) {
+  const url = new URL(req.url);
+  const idsParam = url.searchParams.get("ids");
+  if (!idsParam) return json({ error: "ids required" }, 400, origin);
+  const ids = idsParam
+    .split(",")
+    .map((s) => decodeURIComponent(s || "").trim())
+    .filter(Boolean);
+  if (ids.length === 0) return json({ items: [] }, 200, origin);
+
+  const cache = caches.default;
+  const cacheKey = new Request(url.toString(), { method: "GET", headers: { accept: "application/json" } });
+  const cached = await cache.match(cacheKey);
+  if (cached) return cached;
+
+  const items = [];
+  for (const id of ids) {
+    const base = { id, datasetId: id, title: id, zip_key: `private/${id}.zip`, r2_key: `private/${id}.zip`, r2Key: `private/${id}.zip` };
+    let info = {};
+    let infoFront = {};
+    let infoRear = {};
+    const infoObj = await env.DATASETS.get(`ready/${id}/dataset_info.json`);
+    if (infoObj) { try { info = await infoObj.json(); } catch { /* ignore */ } }
+    const infoFrontObj = await env.DATASETS.get(`ready/${id}/dataset_info_front.json`);
+    if (infoFrontObj) { try { infoFront = await infoFrontObj.json(); } catch { /* ignore */ } }
+    const infoRearObj = await env.DATASETS.get(`ready/${id}/dataset_info_rear.json`);
+    if (infoRearObj) { try { infoRear = await infoRearObj.json(); } catch { /* ignore */ } }
+    const pickZipKey = (...objs) => {
+      for (const o of objs) {
+        if (!o || typeof o !== "object") continue;
+        const val =
+          o.zip_key ||
+          o.zipKey ||
+          o.storage_zip_key ||
+          o.storageZipKey ||
+          o.r2_key ||
+          o.r2Key ||
+          o.zip ||
+          o.zipPath ||
+          o.zipFile ||
+          o.zipFilename ||
+          o.zip_name;
+        if (typeof val === "string" && val.trim()) {
+          return val.trim();
+        }
+      }
+      return null;
+    };
+    const zipKey =
+      pickZipKey(info, infoFront, infoRear) ||
+      (id ? `private/${id}.zip` : null);
+    items.push({
+      ...base,
+      title: info.title || base.title,
+      city: info.city || info.location || "",
+      tags: info.tags || [],
+      minutes: info.minutes ?? null,
+      zip_key: zipKey,
+      r2_key: zipKey,
+      r2Key: zipKey,
+    });
+  }
+
+  const headers = {
+    "content-type": "application/json",
+    ...corsHeaders(origin),
+    "cache-control": "public, max-age=3600"
+  };
+  const response = new Response(JSON.stringify({ items }), { status: 200, headers });
+  try {
+    await cache.put(cacheKey, response.clone());
+  } catch {
+    // ignore cache failures
+  }
+  return response;
+}
+
 async function proxyR2(key, env, origin) {
   const obj = await env.DATASETS.get(key);
   if (!obj) return new Response("Not found", { status: 404, headers: corsHeaders(origin) });
@@ -228,6 +320,64 @@ async function claimTokens(url, env, origin) {
     const sessionTokens = await env.TOKENS_KV.get(sessionKey, { type: "json" });
     if (Array.isArray(sessionTokens)) {
       tokens.push(...sessionTokens);
+    }
+    // Fallback: rebuild tokens from stored cart if webhook didn't populate yet
+    if (tokens.length === 0 && env.STRIPE_SECRET_KEY) {
+      try {
+        const res = await fetch(`https://api.stripe.com/v1/checkout/sessions/${sessionId}`, {
+          method: "GET",
+          headers: { Authorization: `Bearer ${env.STRIPE_SECRET_KEY}` },
+        });
+        if (res.ok) {
+          const session = await res.json();
+          const cartId = session?.metadata?.cart_id;
+          if (cartId) {
+            const stored = await env.TOKENS_KV.get(`cart:${cartId}`, { type: "json" });
+            if (stored && Array.isArray(stored.items)) {
+              const keys = [];
+              for (const it of stored.items) {
+                const key =
+                  (it?.storage_zip_key || it?.zip_key || it?.r2_key || "").trim();
+                const qty = Math.min(99, Math.max(1, Number(it?.quantity ?? it?.qty ?? 1) || 1));
+                if (key) {
+                  for (let i = 0; i < qty; i++) keys.push(key);
+                }
+              }
+              if (keys.length) {
+                const rebuilt = [];
+                for (const key of keys) {
+                  const tokenId = `tk_${cryptoRandom(24)}`;
+                  const tokenData = {
+                    r2_key: key,
+                    ttl: 7 * 24 * 3600,
+                    maxDownloads: 3,
+                    downloads: 0,
+                    orderId: sessionId,
+                    title: "",
+                    buyerEmail: session?.customer_details?.email || session?.customer_email || stored.email || "",
+                  };
+                  await env.TOKENS_KV.put(tokenId, JSON.stringify(tokenData), { expirationTtl: tokenData.ttl });
+                  rebuilt.push({
+                    token: tokenId,
+                    r2_key: key,
+                    title: tokenData.title,
+                    downloadsLeft: tokenData.maxDownloads,
+                    url: `${session?.metadata?.base_url || origin}/download/${tokenId}`,
+                  });
+                }
+                const idxKey = `ord_${sessionId}`;
+                const existing = await env.TOKENS_KV.get(idxKey, { type: "json" }) || [];
+                existing.push(...rebuilt.map((t) => t.token));
+                await env.TOKENS_KV.put(idxKey, JSON.stringify(existing), { expirationTtl: 72 * 3600 });
+                await env.TOKENS_KV.put(sessionKey, JSON.stringify(rebuilt), { expirationTtl: 72 * 3600 });
+                tokens.push(...rebuilt);
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.error("claim rebuild failed", err);
+      }
     }
   }
 
@@ -347,7 +497,7 @@ async function stripeWebhook(req, env) {
             const existing = await env.TOKENS_KV.get(idxKey, { type: "json" }) || [];
             existing.push(...tokens);
             await env.TOKENS_KV.put(idxKey, JSON.stringify(existing), { expirationTtl: 7 * 24 * 3600 });
-            await env.TOKENS_KV.put(`session:${session.id}`, JSON.stringify(tokens.map(tk => ({ token: tk, r2_key: keys[0], downloadsLeft: 3, url: `${session.metadata?.base_url || ""}/download/${tk}` }))), { expirationTtl: 7 * 24 * 3600 });
+            await env.TOKENS_KV.put(`session:${session.id}`, JSON.stringify(tokens.map(tk => ({ token: tk, r2_key: keys[0], downloadsLeft: 3, url: `/download/${tk}` }))), { expirationTtl: 7 * 24 * 3600 });
             return new Response("ok", { status: 200, headers: corsHeaders(origin) });
           }
         }
@@ -357,44 +507,64 @@ async function stripeWebhook(req, env) {
     }
 
     let keys = [];
-    const itemsJson = session.metadata?.items_json;
-    if (itemsJson) {
+    const cartId = session.metadata?.cart_id;
+    if (cartId) {
       try {
-        const parsed = JSON.parse(itemsJson);
-        for (const it of parsed) {
-          const key = it?.storage_zip_key || it?.r2_key;
-          const qty = Math.min(99, Math.max(1, Number(it?.qty) || 1));
-          if (key) {
-            for (let i = 0; i < qty; i++) keys.push(key);
+        const stored = await env.TOKENS_KV.get(`cart:${cartId}`, { type: "json" });
+        if (stored && Array.isArray(stored.items)) {
+          for (const it of stored.items) {
+            const key =
+              (it?.storage_zip_key || it?.zip_key || it?.r2_key || "").trim();
+            const qty = Math.min(99, Math.max(1, Number(it?.quantity ?? it?.qty ?? 1) || 1));
+            if (key) {
+              for (let i = 0; i < qty; i++) keys.push(key);
+            }
           }
         }
       } catch (err) {
-        console.error("items_json parse failed", err);
+        console.error("cart lookup failed", err);
       }
-    }
-    const metaKeys = session.metadata?.r2_keys || session.metadata?.keys;
-    if (metaKeys) {
-      keys = keys.concat(metaKeys.split("|").map(s => s.trim()).filter(Boolean));
-    }
-    if (keys.length === 0 && session.metadata?.r2_key) {
-      const key = session.metadata.r2_key.trim();
-      if (key) keys = [key];
     }
     if (keys.length === 0) {
-      let key = session.metadata?.r2_key?.trim();
-      if (!key) {
-        const bundleId = session.metadata?.bundle_id?.trim();
-        const datasetId = session.metadata?.dataset_id?.trim();
-        if (bundleId) {
-          key = `private/bundles/${bundleId}.zip`;
-        } else if (datasetId) {
-          key = `private/${datasetId}.zip`;
+      const itemsJson = session.metadata?.items_json;
+      if (itemsJson) {
+        try {
+          const parsed = JSON.parse(itemsJson);
+          for (const it of parsed) {
+            const key = it?.storage_zip_key || it?.r2_key;
+            const qty = Math.min(99, Math.max(1, Number(it?.qty) || 1));
+            if (key) {
+              for (let i = 0; i < qty; i++) keys.push(key);
+            }
+          }
+        } catch (err) {
+          console.error("items_json parse failed", err);
         }
       }
-      if (!key) {
-        return new Response("Missing metadata (keys/r2_key/dataset_id/bundle_id)", { status: 400, headers: corsHeaders(origin) });
+      const metaKeys = session.metadata?.r2_keys || session.metadata?.keys;
+      if (metaKeys) {
+        keys = keys.concat(metaKeys.split("|").map(s => s.trim()).filter(Boolean));
       }
-      keys = [key];
+      if (keys.length === 0 && session.metadata?.r2_key) {
+        const key = session.metadata.r2_key.trim();
+        if (key) keys = [key];
+      }
+      if (keys.length === 0) {
+        let key = session.metadata?.r2_key?.trim();
+        if (!key) {
+          const bundleId = session.metadata?.bundle_id?.trim();
+          const datasetId = session.metadata?.dataset_id?.trim();
+          if (bundleId) {
+            key = `private/bundles/${bundleId}.zip`;
+          } else if (datasetId) {
+            key = `private/${datasetId}.zip`;
+          }
+        }
+        if (!key) {
+          return new Response("Missing metadata (keys/r2_key/dataset_id/bundle_id)", { status: 400, headers: corsHeaders(origin) });
+        }
+        keys = [key];
+      }
     }
 
     const tokens = [];
@@ -415,7 +585,7 @@ async function stripeWebhook(req, env) {
         r2_key: key,
         title: tokenData.title,
         downloadsLeft: tokenData.maxDownloads,
-        url: `${session.metadata?.base_url || ""}/download/${tokenId}`
+        url: `/download/${tokenId}`
       });
     }
 
@@ -551,11 +721,23 @@ async function createCheckoutSession(req, env, origin) {
   params.set("success_url", success_url);
   params.set("cancel_url", cancel_url);
   params.set("metadata[purchase_count_minutes]", String(totalQty));
-  params.set("metadata[items_json]", JSON.stringify(items.map(i => ({
-    title: i.title,
-    storage_zip_key: i.storage_zip_key,
-    qty: i.qty
-  }))));
+  const cartId = `cart_${cryptoRandom(16)}`;
+  try {
+    await env.TOKENS_KV.put(
+      `cart:${cartId}`,
+      JSON.stringify({ items, email, createdAt: Date.now() }),
+      { expirationTtl: 7 * 24 * 3600 },
+    );
+  } catch (err) {
+    console.error("cart store failed", err);
+  }
+  params.set("metadata[cart_id]", cartId);
+  try {
+    const u = new URL(success_url);
+    params.set("metadata[base_url]", u.origin);
+  } catch (err) {
+    params.set("metadata[base_url]", "");
+  }
   if (email) params.set("customer_email", email);
 
   items.forEach((it, idx) => {

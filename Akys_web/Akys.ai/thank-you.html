@@ -1,0 +1,31 @@
+<!doctype html>
+<html><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Thank you – AKYS</title>
+<style>
+body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial;margin:40px;color:#e8eaf0;background:#0c0d10}
+.card{padding:18px;border:1px solid #2a2d35;border-radius:14px;margin:10px 0}
+.btn{padding:10px 16px;border:1px solid #2a2d35;border-radius:10px;text-decoration:none;display:inline-block}
+</style>
+</head><body>
+<h1>Thank you!</h1>
+<p>Your purchase is confirmed. Download links:</p>
+<div id="list"></div>
+<script>
+(async () => {
+  const sid = new URL(location.href).searchParams.get('session_id');
+  if(!sid){ document.getElementById('list').textContent = 'Missing session_id.'; return; }
+  const res = await fetch(`https://api.akys.ai/claim?session_id=${encodeURIComponent(sid)}`);
+  const { tokens } = await res.json();
+  if(!tokens || tokens.length===0){ document.getElementById('list').textContent='No downloads yet. If this persists, contact support.'; return; }
+  const box = document.getElementById('list');
+  tokens.forEach(t => {
+    const div = document.createElement('div');
+    div.className = 'card';
+    div.innerHTML = `<div>Downloads left: ${t.downloadsLeft}</div>
+      <a class="btn" href="${t.url}">Download dataset</a>`;
+    box.appendChild(div);
+  });
+})();
+</script>
+</body></html>
